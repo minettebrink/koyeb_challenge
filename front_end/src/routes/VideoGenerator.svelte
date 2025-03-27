@@ -10,6 +10,9 @@
     let error: string | null = null;
     let inputMethod: 'url' | 'file' = 'url';
 
+    // Use an environment variable for the API URL
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
     async function handleSubmit() {
         loading = true;
         error = null;
@@ -17,9 +20,6 @@
         try {
             const formData = new FormData();
             formData.append('prompt', prompt);
-            formData.append('seed', seed?.toString() || '');
-            formData.append('inference_steps', inferenceSteps?.toString() || '');
-            formData.append('guidance_scale', guidanceScale?.toString() || '');
 
             if (inputMethod === 'url') {
                 formData.append('image_url', imageUrl);
@@ -27,13 +27,33 @@
                 formData.append('image', imageFile);
             }
 
-            const response = await fetch('http://localhost:8000/generate-video', {
+            // Only append optional parameters if they have actual values
+            if (seed !== null && seed !== undefined) {
+                formData.append('seed', seed.toString());
+                console.log('Seed:', seed);
+            }
+            if (inferenceSteps !== null && inferenceSteps !== undefined) {
+                formData.append('inference_steps', inferenceSteps.toString());
+                console.log('Inference Steps:', inferenceSteps);
+            }
+            if (guidanceScale !== null && guidanceScale !== undefined) {
+                formData.append('guidance_scale', guidanceScale.toString());
+                console.log('Guidance Scale:', guidanceScale);
+            }
+
+            const response = await fetch(`${API_URL}/generate-video`, {
                 method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                },
                 body: formData
             });
 
+            
             if (!response.ok) {
-                throw new Error('Failed to generate video');
+                const errorText = await response.text();
+                console.error('Server error response:', errorText);
+                throw new Error(`Failed to generate video: ${errorText}`);
             }
 
             result = await response.json();

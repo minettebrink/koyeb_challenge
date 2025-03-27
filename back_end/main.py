@@ -14,23 +14,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Define the request model
-class VideoGenerationRequest(BaseModel):
-    prompt: str
-    image_url: str
-    seed: Optional[int] = None
-    inference_steps: Optional[int] = None
-    guidance_scale: Optional[float] = None
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
-
 @app.post("/generate-video")
 async def generate_video(
     prompt: str = Form(...),
