@@ -13,7 +13,7 @@ COPY back_end/ .
 
 # Final stage
 FROM koyeb/docker-compose
-COPY --from=frontend /app/dist /app/front_end/dist
+COPY --from=frontend /app/.svelte-kit/output/client /app/front_end/dist
 COPY --from=backend /app /app/back_end
 COPY . /app
 
