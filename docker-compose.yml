@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.koyeb
+      target: backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - DEBIAN_FRONTEND=noninteractive
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - ALLOWED_ORIGINS=http://localhost:5173
+      - BACKEND_URL=http://localhost:8000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+        limits:
+          memory: 160G
+          cpus: '13'
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.koyeb
+      target: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=production
+      - ORIGIN=http://localhost:5173
+      - HOST=0.0.0.0
+      - PORT=5173
+      - VITE_BACKEND_URL=http://localhost:8000
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+    restart: unless-stopped
+    depends_on:
+      - backend 

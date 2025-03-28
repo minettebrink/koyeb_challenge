@@ -1,11 +1,61 @@
-FROM koyeb/docker-compose
+# Use multi-stage build for backend
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 as backend
 
-COPY . /app
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
 
-# Add your docker-compose.yml configuration
-#COPY docker-compose.yml /app/
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
-#WORKDIR /app
+# Set working directory
+WORKDIR /app
 
-# The koyeb/docker-compose image will automatically use your docker-compose.yml
+# Copy backend files
+COPY back_end/requirements.txt .
+COPY back_end/main.py .
+COPY back_end/ltx_video/ ./ltx_video/
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Download model files
+RUN mkdir -p /app/models && \
+    python3 -c "from ltx_video import LTXVideo; LTXVideo.download_model('/app/models')"
+
+# Expose port
+EXPOSE 8000
+
+# Command to run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Use multi-stage build for frontend
+FROM node:18-alpine as frontend
+
+# Set working directory
+WORKDIR /app
+
+# Copy frontend files
+COPY front_end/package*.json ./
+COPY front_end/ ./
+
+# Install dependencies
+RUN npm install
+
+# Build the application
+RUN npm run build
+
+# Install serve
+RUN npm install -g serve
+
+# Expose port
+EXPOSE 5173
+
+# Command to serve the built application
+CMD ["serve", "-s", "dist", "-l", "5173"]
