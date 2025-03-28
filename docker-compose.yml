@@ -10,11 +10,8 @@ services:
     environment:
       - NODE_ENV=development
       - ORIGIN=http://localhost:5173
-      - HOST=0.0.0.0
-      - PORT=5173
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
 
   backend:
     build:
@@ -24,9 +21,3 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
