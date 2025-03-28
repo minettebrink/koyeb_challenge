@@ -26,4 +26,4 @@ ENV NODE_ENV=production
 EXPOSE 5173
 
 # Command to run the application
-CMD ["node", "build/index.js"]
+CMD ["node", "-r", "dotenv/config", "build/index.js"]
