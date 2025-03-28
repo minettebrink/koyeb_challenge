@@ -1,4 +1,19 @@
-FROM koyeb/docker-compose
+FROM node:20-alpine AS frontend
+WORKDIR /app
+COPY front_end/package*.json ./
+RUN npm install
+COPY front_end/ .
+RUN npm run build
 
+FROM python:3.11-slim AS backend
+WORKDIR /app
+COPY back_end/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY back_end/ .
+
+# Final stage
+FROM koyeb/docker-compose
+COPY --from=frontend /app/dist /app/front_end/dist
+COPY --from=backend /app /app/back_end
 COPY . /app
 

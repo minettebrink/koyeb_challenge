@@ -4,8 +4,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.koyeb
-      target: backend
+      dockerfile: back_end/Dockerfile
     ports:
       - "8000:8000"
     environment:
