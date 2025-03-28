@@ -7,11 +7,17 @@ RUN pip3 install --no-cache-dir huggingface_hub diffusers
 # Create directory for model files
 RUN mkdir -p /app/back_end/models/ltx-video
 
-# Create a Python script to download the model
-RUN echo 'import os\nfrom huggingface_hub import snapshot_download\n\ntry:\n    model_path = "/app/back_end/models/ltx-video"\n    snapshot_download("Lightricks/LTX-Video", local_dir=model_path, local_dir_use_symlinks=False, repo_type="model", ignore_patterns=["*.md", "*.txt", "*.gif", "*.png", "*.jpg", "*.jpeg"])\n    print("Model download successful")\nexcept Exception as e:\n    print(f"Error downloading model: {str(e)}")\n    exit(1)' > /download_model.py
+# Create a Python script to download the model with better error handling and progress tracking
+RUN echo 'import os\nimport sys\nfrom huggingface_hub import snapshot_download\nfrom tqdm import tqdm\n\ndef download_with_progress():\n    try:\n        model_path = "/app/back_end/models/ltx-video"\n        print("Starting model download...")\n        \n        # Download with progress bar\n        snapshot_download(\n            "Lightricks/LTX-Video",\n            local_dir=model_path,\n            repo_type="model",\n            ignore_patterns=["*.md", "*.txt", "*.gif", "*.png", "*.jpg", "*.jpeg"],\n            local_files_only=False,\n            resume_download=True\n        )\n        \n        print("Model download successful")\n        return True\n    except Exception as e:\n        print(f"Error downloading model: {str(e)}", file=sys.stderr)\n        return False\n\nif __name__ == "__main__":\n    success = download_with_progress()\n    sys.exit(0 if success else 1)' > /download_model.py
 
-# Run the Python script
-RUN python3 /download_model.py && rm -rf /root/.cache/huggingface
+# Run the Python script with retries
+RUN for i in {1..3}; do \
+    echo "Attempt $i of 3 to download model..."; \
+    python3 /download_model.py && break || \
+    if [ $i -eq 3 ]; then exit 1; fi; \
+    echo "Retrying in 5 seconds..."; \
+    sleep 5; \
+done && rm -rf /root/.cache/huggingface
 
 # Second stage: Main application
 FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
