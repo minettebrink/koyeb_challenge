@@ -10,9 +10,6 @@
     let error: string | null = null;
     let inputMethod: 'url' | 'file' = 'url';
 
-    // Use an environment variable for the API URL
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
     async function handleSubmit() {
         loading = true;
         error = null;
@@ -41,11 +38,8 @@
                 console.log('Guidance Scale:', guidanceScale);
             }
 
-            const response = await fetch(`${API_URL}/generate-video`, {
+            const response = await fetch('http://localhost:8000/generate-video', {
                 method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                },
                 body: formData
             });
 
