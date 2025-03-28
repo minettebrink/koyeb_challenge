@@ -12,7 +12,7 @@ RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: m
     rm -rf /root/.cache/huggingface
 
 # Second stage: Main application
-FROM pytorch/pytorch:2.1.2-cuda12.2-cudnn8-runtime
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
