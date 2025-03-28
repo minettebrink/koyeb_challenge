@@ -17,6 +17,7 @@ services:
       - VITE_BACKEND_URL=https://definite-weasel-challenge-f82bb88d.koyeb.app/backend
     depends_on:
       - backend
+    restart: unless-stopped
 
   backend:
     build:
@@ -28,6 +29,8 @@ services:
       - PYTHONUNBUFFERED=1
       - CUDA_VISIBLE_DEVICES=0
       - ALLOWED_ORIGINS=https://definite-weasel-challenge-f82bb88d.koyeb.app
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
     deploy:
       resources:
         reservations:
@@ -35,3 +38,4 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    restart: unless-stopped
