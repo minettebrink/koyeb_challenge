@@ -38,7 +38,7 @@
                 console.log('Guidance Scale:', guidanceScale);
             }
 
-            const response = await fetch('http://localhost:8000/generate-video', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/generate-video`, {
                 method: 'POST',
                 body: formData
             });
