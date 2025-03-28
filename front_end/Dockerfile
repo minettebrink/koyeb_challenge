@@ -20,8 +20,11 @@ COPY . .
 RUN pnpm build
 
 # Expose the port the app runs on
-ENV PORT=5173
 EXPOSE 5173
+
+# Set host environment variable for proper binding
+ENV HOST=0.0.0.0
+ENV PORT=5173
 
 # Command to run the application
 CMD ["node", "build/index.js"]
