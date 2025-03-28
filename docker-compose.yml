@@ -10,6 +10,8 @@ services:
     environment:
       - NODE_ENV=development
       - ORIGIN=http://localhost:5173
+      - HOST=0.0.0.0
+      - PORT=5173
     depends_on:
       - backend
 
