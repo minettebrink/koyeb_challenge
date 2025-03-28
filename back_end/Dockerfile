@@ -8,7 +8,7 @@ RUN pip3 install --no-cache-dir huggingface_hub diffusers
 RUN mkdir -p /app/back_end/models/ltx-video
 
 # Create a Python script to download the model with better error handling and progress tracking
-RUN echo 'import os\nimport sys\nfrom huggingface_hub import snapshot_download\nfrom tqdm import tqdm\n\ndef download_with_progress():\n    try:\n        model_path = "/app/back_end/models/ltx-video"\n        print("Starting model download...")\n        \n        # Download with progress bar\n        snapshot_download(\n            "Lightricks/LTX-Video",\n            local_dir=model_path,\n            repo_type="model",\n            ignore_patterns=["*.md", "*.txt", "*.gif", "*.png", "*.jpg", "*.jpeg"],\n            local_files_only=False,\n            resume_download=True\n        )\n        \n        print("Model download successful")\n        return True\n    except Exception as e:\n        print(f"Error downloading model: {str(e)}", file=sys.stderr)\n        return False\n\nif __name__ == "__main__":\n    success = download_with_progress()\n    sys.exit(0 if success else 1)' > /download_model.py
+RUN echo 'import os\nimport sys\nfrom huggingface_hub import snapshot_download\nfrom tqdm import tqdm\n\ndef download_with_progress():\n    try:\n        model_path = "/app/back_end/models/ltx-video"\n        print("Starting model download...")\n        \n        # Download with progress bar\n        snapshot_download(\n            "Lightricks/LTX-Video",\n            local_dir=model_path,\n            repo_type="model",\n            ignore_patterns=["*.md", "*.txt", "*.gif", "*.png", "*.jpg", "*.jpeg", "*.bin", "*.pt", "*.pth"],\n            local_files_only=False\n        )\n        \n        print("Model download successful")\n        return True\n    except Exception as e:\n        print(f"Error downloading model: {str(e)}", file=sys.stderr)\n        return False\n\nif __name__ == "__main__":\n    success = download_with_progress()\n    sys.exit(0 if success else 1)' > /download_model.py
 
 # Run the Python script with retries
 RUN for i in {1..3}; do \
@@ -50,14 +50,8 @@ RUN mkdir -p /app/back_end/models/ltx-video
 # Copy the application code
 COPY . .
 
-# Copy each model file individually to leverage layer caching
-COPY --from=model_downloader /app/back_end/models/ltx-video/model.safetensors /app/back_end/models/ltx-video/
-COPY --from=model_downloader /app/back_end/models/ltx-video/config.json /app/back_end/models/ltx-video/
-COPY --from=model_downloader /app/back_end/models/ltx-video/scheduler /app/back_end/models/ltx-video/scheduler/
-COPY --from=model_downloader /app/back_end/models/ltx-video/text_encoder /app/back_end/models/ltx-video/text_encoder/
-COPY --from=model_downloader /app/back_end/models/ltx-video/tokenizer /app/back_end/models/ltx-video/tokenizer/
-COPY --from=model_downloader /app/back_end/models/ltx-video/unet /app/back_end/models/ltx-video/unet/
-COPY --from=model_downloader /app/back_end/models/ltx-video/vae /app/back_end/models/ltx-video/vae/
+# Copy model files from the downloader stage
+COPY --from=model_downloader /app/back_end/models/ltx-video /app/back_end/models/ltx-video
 
 # Clean up any temporary files
 RUN rm -rf /root/.cache/pip /root/.cache/huggingface
