@@ -28,8 +28,11 @@ RUN mkdir -p /app/models/ltx-video
 # Copy the application code
 COPY . .
 
-# Download and chunk the model files
-RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download('Lightricks/LTX-Video', local_dir='/app/models/ltx-video', local_dir_use_symlinks=False, repo_type='model')"
+# Download model files in chunks
+RUN python3 -c "from huggingface_hub import snapshot_download; import os; model_path = '/app/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); [os.rename(os.path.join(model_path, f), os.path.join(model_path, f.replace('.safetensors', '_chunk.safetensors'))) for f in os.listdir(model_path) if f.endswith('.safetensors')]"
+
+# Copy each model chunk in a separate layer for better caching
+COPY --from=0 /app/models/ltx-video/*_chunk.safetensors /app/models/ltx-video/
 
 # Expose the port the app runs on
 EXPOSE 8000
