@@ -7,9 +7,11 @@ RUN pip3 install --no-cache-dir huggingface_hub diffusers
 # Create directory for model files
 RUN mkdir -p /app/back_end/models/ltx-video
 
-# Download model files with cleanup
-RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/back_end/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt', '*.gif', '*.png', '*.jpg', '*.jpeg']); print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)" && \
-    rm -rf /root/.cache/huggingface
+# Create a Python script to download the model
+RUN echo 'import os\nfrom huggingface_hub import snapshot_download\n\ntry:\n    model_path = "/app/back_end/models/ltx-video"\n    snapshot_download("Lightricks/LTX-Video", local_dir=model_path, local_dir_use_symlinks=False, repo_type="model", ignore_patterns=["*.md", "*.txt", "*.gif", "*.png", "*.jpg", "*.jpeg"])\n    print("Model download successful")\nexcept Exception as e:\n    print(f"Error downloading model: {str(e)}")\n    exit(1)' > /download_model.py
+
+# Run the Python script
+RUN python3 /download_model.py && rm -rf /root/.cache/huggingface
 
 # Second stage: Main application
 FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
