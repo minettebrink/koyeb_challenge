@@ -5,10 +5,10 @@ FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime as model_downloader
 RUN pip3 install --no-cache-dir huggingface_hub
 
 # Create directory for model files
-RUN mkdir -p /app/models/ltx-video
+RUN mkdir -p /app/back_end/models/ltx-video
 
 # Download model files
-RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)"
+RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/back_end/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)"
 
 # Second stage: Main application
 FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/back_end
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
@@ -36,19 +36,19 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Create directory for model files
-RUN mkdir -p /app/models/ltx-video
+RUN mkdir -p /app/back_end/models/ltx-video
 
 # Copy the application code
 COPY . .
 
 # Copy each model file individually to leverage layer caching
-COPY --from=model_downloader /app/models/ltx-video/model.safetensors /app/models/ltx-video/
-COPY --from=model_downloader /app/models/ltx-video/config.json /app/models/ltx-video/
-COPY --from=model_downloader /app/models/ltx-video/scheduler /app/models/ltx-video/scheduler/
-COPY --from=model_downloader /app/models/ltx-video/text_encoder /app/models/ltx-video/text_encoder/
-COPY --from=model_downloader /app/models/ltx-video/tokenizer /app/models/ltx-video/tokenizer/
-COPY --from=model_downloader /app/models/ltx-video/unet /app/models/ltx-video/unet/
-COPY --from=model_downloader /app/models/ltx-video/vae /app/models/ltx-video/vae/
+COPY --from=model_downloader /app/back_end/models/ltx-video/model.safetensors /app/back_end/models/ltx-video/
+COPY --from=model_downloader /app/back_end/models/ltx-video/config.json /app/back_end/models/ltx-video/
+COPY --from=model_downloader /app/back_end/models/ltx-video/scheduler /app/back_end/models/ltx-video/scheduler/
+COPY --from=model_downloader /app/back_end/models/ltx-video/text_encoder /app/back_end/models/ltx-video/text_encoder/
+COPY --from=model_downloader /app/back_end/models/ltx-video/tokenizer /app/back_end/models/ltx-video/tokenizer/
+COPY --from=model_downloader /app/back_end/models/ltx-video/unet /app/back_end/models/ltx-video/unet/
+COPY --from=model_downloader /app/back_end/models/ltx-video/vae /app/back_end/models/ltx-video/vae/
 
 # Expose the port the app runs on
 EXPOSE 8000
