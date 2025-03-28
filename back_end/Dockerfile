@@ -1,4 +1,16 @@
-# Use CUDA-enabled base image with PyTorch support
+# First stage: Download model files
+FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime as model_downloader
+
+# Install huggingface_hub
+RUN pip3 install --no-cache-dir huggingface_hub
+
+# Create directory for model files
+RUN mkdir -p /app/models/ltx-video
+
+# Download model files
+RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)"
+
+# Second stage: Main application
 FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
 
 # Set environment variables
@@ -28,11 +40,14 @@ RUN mkdir -p /app/models/ltx-video
 # Copy the application code
 COPY . .
 
-# Download model files in chunks with error handling
-RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); [os.rename(os.path.join(model_path, f), os.path.join(model_path, f.replace('.safetensors', '_chunk.safetensors'))) for f in os.listdir(model_path) if f.endswith('.safetensors')]; print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)"
-
-# Copy each model chunk in a separate layer for better caching
-COPY --from=0 /app/models/ltx-video/*_chunk.safetensors /app/models/ltx-video/
+# Copy each model file individually to leverage layer caching
+COPY --from=model_downloader /app/models/ltx-video/model.safetensors /app/models/ltx-video/
+COPY --from=model_downloader /app/models/ltx-video/config.json /app/models/ltx-video/
+COPY --from=model_downloader /app/models/ltx-video/scheduler /app/models/ltx-video/scheduler/
+COPY --from=model_downloader /app/models/ltx-video/text_encoder /app/models/ltx-video/text_encoder/
+COPY --from=model_downloader /app/models/ltx-video/tokenizer /app/models/ltx-video/tokenizer/
+COPY --from=model_downloader /app/models/ltx-video/unet /app/models/ltx-video/unet/
+COPY --from=model_downloader /app/models/ltx-video/vae /app/models/ltx-video/vae/
 
 # Expose the port the app runs on
 EXPOSE 8000
