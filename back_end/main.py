@@ -9,7 +9,7 @@ app = FastAPI()
 # Get allowed origins from environment variable or use default
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173,https://*.koyeb.app"
+    "http://localhost:5173,https://*.koyeb.app,https://definite-weasel-challenge-f82bb88d.koyeb.app"
 ).split(",")
 
 # Add CORS middleware with more flexible configuration
@@ -19,6 +19,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Add a health check endpoint

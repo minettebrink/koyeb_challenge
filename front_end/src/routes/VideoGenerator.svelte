@@ -40,7 +40,11 @@
 
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/generate-video`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                }
             });
 
             
