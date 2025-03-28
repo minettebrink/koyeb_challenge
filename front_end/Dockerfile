@@ -16,13 +16,17 @@ RUN pnpm install
 # Copy the rest of the application
 COPY . .
 
-# Build the application
-RUN pnpm build
-
 # Set environment variables
 ENV PORT=5173
 ENV HOST=0.0.0.0
 ENV NODE_ENV=production
+
+# Build the application with environment variables
+ARG VITE_BACKEND_URL
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+
+RUN pnpm build
+
 EXPOSE 5173
 
 # Command to run the application

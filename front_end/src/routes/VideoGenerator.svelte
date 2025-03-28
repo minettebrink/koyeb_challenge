@@ -15,6 +15,13 @@
         error = null;
         
         try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL;
+            if (!backendUrl) {
+                throw new Error('Backend URL is not configured. Please check your environment variables.');
+            }
+
+            console.log('Using backend URL:', backendUrl);
+
             const formData = new FormData();
             formData.append('prompt', prompt);
 
@@ -38,7 +45,10 @@
                 console.log('Guidance Scale:', guidanceScale);
             }
 
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/generate-video`, {
+            const url = `${backendUrl}/generate-video`;
+            console.log('Making request to:', url);
+
+            const response = await fetch(url, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',
@@ -47,7 +57,6 @@
                 }
             });
 
-            
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Server error response:', errorText);
@@ -57,6 +66,7 @@
             result = await response.json();
         } catch (e) {
             error = e instanceof Error ? e.message : 'An unknown error occurred';
+            console.error('Error details:', e);
         } finally {
             loading = false;
         }
