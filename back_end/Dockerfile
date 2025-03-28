@@ -20,7 +20,7 @@ RUN for i in {1..3}; do \
 done && rm -rf /root/.cache/huggingface
 
 # Second stage: Main application
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -41,8 +41,9 @@ WORKDIR /app/back_end
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install Python dependencies and PyTorch with CUDA support
+RUN pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # Create directory for model files
 RUN mkdir -p /app/back_end/models/ltx-video
