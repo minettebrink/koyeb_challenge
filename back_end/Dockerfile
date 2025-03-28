@@ -17,6 +17,7 @@ FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_VISIBLE_DEVICES=0
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -52,5 +53,5 @@ COPY --from=model_downloader /app/models/ltx-video/vae /app/models/ltx-video/vae
 # Expose the port the app runs on
 EXPOSE 8000
 
-# Command to run the application using uvicorn with production settings
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
+# Command to run the application using uvicorn with production settings and memory optimization
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info", "--timeout-keep-alive", "120"]
