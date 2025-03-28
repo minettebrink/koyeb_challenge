@@ -27,7 +27,12 @@ ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 
 RUN pnpm build
 
+# Install serve to serve the static files -- just added
+RUN npm install -g serve
+
 EXPOSE 5173
 
-# Command to run the application
-CMD ["node", "build/index.js"]
+# Command to serve the built application
+# Command to serve the built application
+#CMD ["serve", "-s", "dist", "-l", "5173"]
+CMD ["serve", "-s", "dist", "-l", "5173"]
