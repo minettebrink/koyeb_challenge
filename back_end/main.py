@@ -3,6 +3,8 @@ from typing import Union, Optional
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
+import base64
+from io import BytesIO
 
 app = FastAPI()
 
@@ -16,10 +18,10 @@ ALLOWED_ORIGINS = os.getenv(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,  # Allow both local and Koyeb domains
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_credentials=False,  # We don't need credentials
+    allow_methods=["GET", "POST", "OPTIONS"],  # Specify allowed methods
+    allow_headers=["Content-Type", "Accept"],  # Specify allowed headers
+    expose_headers=["Content-Type"],  # Specify exposed headers
 )
 
 # Add a health check endpoint
@@ -27,30 +29,31 @@ app.add_middleware(
 async def health_check():
     return {"status": "healthy"}
 
+class VideoGenerationRequest(BaseModel):
+    prompt: str
+    image_url: Optional[str] = None
+    image_base64: Optional[str] = None
+    seed: Optional[int] = None
+    inference_steps: Optional[int] = None
+    guidance_scale: Optional[float] = None
+
 @app.post("/generate-video")
-async def generate_video(
-    prompt: str = Form(...),
-    image_url: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None),
-    seed: Optional[int] = Form(None),
-    inference_steps: Optional[int] = Form(None),
-    guidance_scale: Optional[float] = Form(None)
-):
+async def generate_video(request: VideoGenerationRequest):
     try:
-        if image_url is None and image is None:
-            raise HTTPException(status_code=400, detail="Either image_url or image file must be provided")
+        if request.image_url is None and request.image_base64 is None:
+            raise HTTPException(status_code=400, detail="Either image_url or image_base64 must be provided")
 
         # Here you would eventually add the LTX-Video model integration
         # For now, just return the parameters that would be used
         return {
             "status": "success",
             "parameters": {
-                "prompt": prompt,
-                "image_url": image_url,
-                "image_filename": image.filename if image else None,
-                "seed": seed,
-                "inference_steps": inference_steps,
-                "guidance_scale": guidance_scale
+                "prompt": request.prompt,
+                "image_url": request.image_url,
+                "has_image_base64": request.image_base64 is not None,
+                "seed": request.seed,
+                "inference_steps": request.inference_steps,
+                "guidance_scale": request.guidance_scale
             }
         }
     except Exception as e:

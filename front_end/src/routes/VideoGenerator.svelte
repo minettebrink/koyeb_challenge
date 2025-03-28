@@ -22,26 +22,36 @@
 
             console.log('Using backend URL:', backendUrl);
 
-            const formData = new FormData();
-            formData.append('prompt', prompt);
+            // Create the request payload
+            const payload: any = {
+                prompt: prompt
+            };
 
             if (inputMethod === 'url') {
-                formData.append('image_url', imageUrl);
+                payload.image_url = imageUrl;
             } else if (imageFile) {
-                formData.append('image', imageFile);
+                // Convert file to base64
+                const reader = new FileReader();
+                const base64Promise = new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                });
+                reader.readAsDataURL(imageFile);
+                const base64Data = await base64Promise;
+                payload.image_base64 = base64Data;
             }
 
-            // Only append optional parameters if they have actual values
+            // Add optional parameters
             if (seed !== null && seed !== undefined) {
-                formData.append('seed', seed.toString());
+                payload.seed = seed;
                 console.log('Seed:', seed);
             }
             if (inferenceSteps !== null && inferenceSteps !== undefined) {
-                formData.append('inference_steps', inferenceSteps.toString());
+                payload.inference_steps = inferenceSteps;
                 console.log('Inference Steps:', inferenceSteps);
             }
             if (guidanceScale !== null && guidanceScale !== undefined) {
-                formData.append('guidance_scale', guidanceScale.toString());
+                payload.guidance_scale = guidanceScale;
                 console.log('Guidance Scale:', guidanceScale);
             }
 
@@ -50,17 +60,24 @@
 
             const response = await fetch(url, {
                 method: 'POST',
-                body: formData,
-                credentials: 'include',
+                body: JSON.stringify(payload),
                 headers: {
                     'Accept': 'application/json',
+                    'Content-Type': 'application/json'
                 }
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Server error response:', errorText);
-                throw new Error(`Failed to generate video: ${errorText}`);
+                let errorMessage = 'Failed to generate video';
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.detail || errorMessage;
+                } catch (e) {
+                    errorMessage = errorText;
+                }
+                throw new Error(errorMessage);
             }
 
             result = await response.json();
