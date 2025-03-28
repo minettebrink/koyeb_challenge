@@ -1,5 +1,5 @@
 # First stage: Download model files
-FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime as model_downloader
+FROM python:3.10-slim as model_downloader
 
 # Install huggingface_hub
 RUN pip3 install --no-cache-dir huggingface_hub
@@ -7,17 +7,18 @@ RUN pip3 install --no-cache-dir huggingface_hub
 # Create directory for model files
 RUN mkdir -p /app/back_end/models/ltx-video
 
-# Download model files
-RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/back_end/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)"
+# Download model files with cleanup
+RUN python3 -c "import os; from huggingface_hub import snapshot_download; try: model_path = '/app/back_end/models/ltx-video'; snapshot_download('Lightricks/LTX-Video', local_dir=model_path, local_dir_use_symlinks=False, repo_type='model', ignore_patterns=['*.md', '*.txt']); print('Model download successful'); except Exception as e: print(f'Error downloading model: {str(e)}'); exit(1)" && \
+    rm -rf /root/.cache/huggingface
 
 # Second stage: Main application
 FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
 
 # Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
-ENV CUDA_VISIBLE_DEVICES=0
-ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    CUDA_VISIBLE_DEVICES=0 \
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -49,6 +50,9 @@ COPY --from=model_downloader /app/back_end/models/ltx-video/text_encoder /app/ba
 COPY --from=model_downloader /app/back_end/models/ltx-video/tokenizer /app/back_end/models/ltx-video/tokenizer/
 COPY --from=model_downloader /app/back_end/models/ltx-video/unet /app/back_end/models/ltx-video/unet/
 COPY --from=model_downloader /app/back_end/models/ltx-video/vae /app/back_end/models/ltx-video/vae/
+
+# Clean up any temporary files
+RUN rm -rf /root/.cache/pip /root/.cache/huggingface
 
 # Expose the port the app runs on
 EXPOSE 8000
