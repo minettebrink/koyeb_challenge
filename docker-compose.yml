@@ -10,7 +10,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - ORIGIN=http://localhost:5173
       - HOST=0.0.0.0
       - PORT=5173
@@ -26,3 +26,12 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+      - ALLOWED_ORIGINS=https://definite-weasel-challenge-f82bb88d.koyeb.app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

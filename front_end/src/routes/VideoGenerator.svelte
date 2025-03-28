@@ -3,18 +3,38 @@
     let imageUrl: string = '';
     let imageFile: File | null = null;
     let seed: number | null = null;
-    let inferenceSteps: number | null = null;
-    let guidanceScale: number | null = null;
+    let inferenceSteps: number = 50;
+    let guidanceScale: number = 7.5;
+    let width: number = 704;
+    let height: number = 480;
+    let numFrames: number = 161;
     let loading: boolean = false;
     let result: any = null;
     let error: string | null = null;
     let inputMethod: 'url' | 'file' = 'url';
+
+    function validateDimensions() {
+        if (width % 32 !== 0 || height % 32 !== 0) {
+            throw new Error('Width and height must be divisible by 32');
+        }
+        if ((numFrames - 1) % 8 !== 0) {
+            throw new Error('Number of frames must be divisible by 8 plus 1');
+        }
+        if (inferenceSteps < 1) {
+            throw new Error('Inference steps must be positive');
+        }
+        if (guidanceScale < 0) {
+            throw new Error('Guidance scale must be non-negative');
+        }
+    }
 
     async function handleSubmit() {
         loading = true;
         error = null;
         
         try {
+            validateDimensions();
+            
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
             if (!backendUrl) {
                 throw new Error('Backend URL is not configured. Please check your environment variables.');
@@ -24,7 +44,12 @@
 
             // Create the request payload
             const payload: any = {
-                prompt: prompt
+                prompt,
+                inference_steps: inferenceSteps,
+                guidance_scale: guidanceScale,
+                width,
+                height,
+                num_frames: numFrames
             };
 
             if (inputMethod === 'url') {
@@ -41,18 +66,10 @@
                 payload.image_base64 = base64Data;
             }
 
-            // Add optional parameters
+            // Add optional seed parameter
             if (seed !== null && seed !== undefined) {
                 payload.seed = seed;
                 console.log('Seed:', seed);
-            }
-            if (inferenceSteps !== null && inferenceSteps !== undefined) {
-                payload.inference_steps = inferenceSteps;
-                console.log('Inference Steps:', inferenceSteps);
-            }
-            if (guidanceScale !== null && guidanceScale !== undefined) {
-                payload.guidance_scale = guidanceScale;
-                console.log('Guidance Scale:', guidanceScale);
             }
 
             const url = `${backendUrl}/generate-video`;
@@ -166,26 +183,72 @@
         </div>
 
         <div class="form-group">
-            <label for="inferenceSteps">Inference Steps (optional):</label>
+            <label for="inferenceSteps">Inference Steps:</label>
             <input 
                 id="inferenceSteps"
                 type="number" 
                 bind:value={inferenceSteps} 
                 min="1" 
                 max="100"
+                required
             />
+            <small class="help-text">Controls generation quality (higher = better quality but slower)</small>
         </div>
 
         <div class="form-group">
-            <label for="guidanceScale">Guidance Scale (optional):</label>
+            <label for="guidanceScale">Guidance Scale:</label>
             <input 
                 id="guidanceScale"
                 type="number" 
                 bind:value={guidanceScale} 
                 step="0.1" 
-                min="1" 
+                min="0" 
                 max="20"
+                required
             />
+            <small class="help-text">Controls prompt adherence (higher = more prompt adherence but potentially less natural)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="width">Width:</label>
+            <input 
+                id="width"
+                type="number" 
+                bind:value={width} 
+                min="32" 
+                max="1280"
+                step="32"
+                required
+            />
+            <small class="help-text">Must be divisible by 32</small>
+        </div>
+
+        <div class="form-group">
+            <label for="height">Height:</label>
+            <input 
+                id="height"
+                type="number" 
+                bind:value={height} 
+                min="32" 
+                max="720"
+                step="32"
+                required
+            />
+            <small class="help-text">Must be divisible by 32</small>
+        </div>
+
+        <div class="form-group">
+            <label for="numFrames">Number of Frames:</label>
+            <input 
+                id="numFrames"
+                type="number" 
+                bind:value={numFrames} 
+                min="9" 
+                max="257"
+                step="8"
+                required
+            />
+            <small class="help-text">Must be divisible by 8 plus 1 (e.g., 161)</small>
         </div>
 
         <button type="submit" disabled={loading}>
@@ -354,5 +417,12 @@
             flex-direction: column;
             gap: 1rem;
         }
+    }
+
+    .help-text {
+        display: block;
+        margin-top: 0.25rem;
+        color: #64748b;
+        font-size: 0.875rem;
     }
 </style>
