@@ -2,17 +2,29 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from typing import Union, Optional
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import os
 
 app = FastAPI()
 
-# Add CORS middleware
+# Get allowed origins from environment variable or use default
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,https://*.koyeb.app"
+).split(",")
+
+# Add CORS middleware with more flexible configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # SvelteKit dev server origin
+    allow_origins=ALLOWED_ORIGINS,  # Allow both local and Koyeb domains
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+# Add a health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 @app.post("/generate-video")
 async def generate_video(
