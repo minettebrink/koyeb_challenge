@@ -11,7 +11,8 @@ services:
       - NODE_ENV=development
       - ORIGIN=http://localhost:5173
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   backend:
     build:
@@ -21,4 +22,9 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - ALLOWED_ORIGINS=http://localhost:5173,https://*.koyeb.app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

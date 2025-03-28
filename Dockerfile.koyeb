@@ -3,9 +3,9 @@ FROM koyeb/docker-compose
 COPY . /app
 
 # Add your docker-compose.yml configuration
-COPY docker-compose.yml /app/
+#COPY docker-compose.yml /app/
 
 # Set the working directory
-WORKDIR /app
+#WORKDIR /app
 
 # The koyeb/docker-compose image will automatically use your docker-compose.yml
