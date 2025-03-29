@@ -3,47 +3,18 @@
     let imageUrl: string = '';
     let imageFile: File | null = null;
     let seed: number | null = null;
-    let inferenceSteps: number = 40;
-    let guidanceScale: number = 7.5;
-    let width: number = 768;
-    let height: number = 512;
-    let numFrames: number = 161;
+    let inferenceSteps: number | null = null;
+    let guidanceScale: number | null = null;
     let loading: boolean = false;
     let result: any = null;
     let error: string | null = null;
     let inputMethod: 'url' | 'file' = 'url';
-
-    function validateDimensions() {
-        if (width % 32 !== 0 || height % 32 !== 0) {
-            throw new Error('Width and height must be divisible by 32');
-        }
-        if ((numFrames - 1) % 8 !== 0) {
-            throw new Error('Number of frames must be divisible by 8 plus 1');
-        }
-        if (inferenceSteps < 1) {
-            throw new Error('Inference steps must be positive');
-        }
-        if (guidanceScale < 0) {
-            throw new Error('Guidance scale must be non-negative');
-        }
-        if (width < 512 || width > 1024) {
-            throw new Error('Width must be between 512 and 1024');
-        }
-        if (height < 512 || height > 1024) {
-            throw new Error('Height must be between 512 and 1024');
-        }
-        if (numFrames < 17 || numFrames > 161) {
-            throw new Error('Number of frames must be between 17 and 161');
-        }
-    }
 
     async function handleSubmit() {
         loading = true;
         error = null;
         
         try {
-            validateDimensions();
-            
             const backendUrl = import.meta.env.VITE_BACKEND_URL;
             if (!backendUrl) {
                 throw new Error('Backend URL is not configured. Please check your environment variables.');
@@ -53,18 +24,10 @@
 
             // Create the request payload
             const payload: any = {
-                prompt,
-                inference_steps: inferenceSteps,
-                guidance_scale: guidanceScale,
-                width,
-                height,
-                num_frames: numFrames
+                prompt: prompt
             };
 
             if (inputMethod === 'url') {
-                if (!imageUrl) {
-                    throw new Error('Please provide an image URL');
-                }
                 payload.image_url = imageUrl;
             } else if (imageFile) {
                 // Convert file to base64
@@ -75,14 +38,21 @@
                 });
                 reader.readAsDataURL(imageFile);
                 const base64Data = await base64Promise;
-                // Remove the data URL prefix
-                payload.image_base64 = (base64Data as string).split(',')[1];
+                payload.image_base64 = base64Data;
             }
 
-            // Add optional seed parameter
+            // Add optional parameters
             if (seed !== null && seed !== undefined) {
                 payload.seed = seed;
                 console.log('Seed:', seed);
+            }
+            if (inferenceSteps !== null && inferenceSteps !== undefined) {
+                payload.inference_steps = inferenceSteps;
+                console.log('Inference Steps:', inferenceSteps);
+            }
+            if (guidanceScale !== null && guidanceScale !== undefined) {
+                payload.guidance_scale = guidanceScale;
+                console.log('Guidance Scale:', guidanceScale);
             }
 
             const url = `${backendUrl}/generate-video`;
@@ -111,19 +81,6 @@
             }
 
             result = await response.json();
-            
-            // Display the video if available
-            if (result.video_base64) {
-                const videoElement = document.createElement('video');
-                videoElement.controls = true;
-                videoElement.style.maxWidth = '100%';
-                videoElement.style.marginTop = '1rem';
-                videoElement.src = `data:video/mp4;base64,${result.video_base64}`;
-                const resultContainer = document.querySelector('.result');
-                if (resultContainer) {
-                    resultContainer.appendChild(videoElement);
-                }
-            }
         } catch (e) {
             error = e instanceof Error ? e.message : 'An unknown error occurred';
             console.error('Error details:', e);
@@ -209,72 +166,26 @@
         </div>
 
         <div class="form-group">
-            <label for="inferenceSteps">Inference Steps:</label>
+            <label for="inferenceSteps">Inference Steps (optional):</label>
             <input 
                 id="inferenceSteps"
                 type="number" 
                 bind:value={inferenceSteps} 
                 min="1" 
                 max="100"
-                required
             />
-            <small class="help-text">Controls generation quality (higher = better quality but slower). Default: 40</small>
         </div>
 
         <div class="form-group">
-            <label for="guidanceScale">Guidance Scale:</label>
+            <label for="guidanceScale">Guidance Scale (optional):</label>
             <input 
                 id="guidanceScale"
                 type="number" 
                 bind:value={guidanceScale} 
                 step="0.1" 
-                min="0" 
+                min="1" 
                 max="20"
-                required
             />
-            <small class="help-text">Controls prompt adherence (higher = more prompt adherence but potentially less natural). Default: 7.5</small>
-        </div>
-
-        <div class="form-group">
-            <label for="width">Width:</label>
-            <input 
-                id="width"
-                type="number" 
-                bind:value={width} 
-                min="512" 
-                max="1024"
-                step="32"
-                required
-            />
-            <small class="help-text">Must be between 512 and 1024, divisible by 32</small>
-        </div>
-
-        <div class="form-group">
-            <label for="height">Height:</label>
-            <input 
-                id="height"
-                type="number" 
-                bind:value={height} 
-                min="512" 
-                max="1024"
-                step="32"
-                required
-            />
-            <small class="help-text">Must be between 512 and 1024, divisible by 32</small>
-        </div>
-
-        <div class="form-group">
-            <label for="numFrames">Number of Frames:</label>
-            <input 
-                id="numFrames"
-                type="number" 
-                bind:value={numFrames} 
-                min="17" 
-                max="161"
-                step="8"
-                required
-            />
-            <small class="help-text">Must be between 17 and 161, divisible by 8 plus 1</small>
         </div>
 
         <button type="submit" disabled={loading}>
@@ -443,12 +354,5 @@
             flex-direction: column;
             gap: 1rem;
         }
-    }
-
-    .help-text {
-        display: block;
-        margin-top: 0.25rem;
-        color: #64748b;
-        font-size: 0.875rem;
     }
 </style>
