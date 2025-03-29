@@ -8,8 +8,111 @@ RUN pip3 install --no-cache-dir huggingface_hub==0.20.3 diffusers==0.25.0
 RUN mkdir -p /models/ltx-video
 
 # Create a Python script to download the model with better error handling and progress tracking
-RUN echo 'import os\nimport sys\nimport time\nimport signal\nimport json\nimport torch\nfrom huggingface_hub import snapshot_download\nfrom tqdm import tqdm\nfrom safetensors.torch import load_file\n\ndef timeout_handler(signum, frame):\n    raise TimeoutError("Download timed out")\n\ndef verify_model_files(model_path):\n    required_files = ["config.json", "model.safetensors", "scheduler", "text_encoder", "tokenizer", "vae"]\n    missing_files = []\n    \n    for file in required_files:\n        if not os.path.exists(os.path.join(model_path, file)):\n            missing_files.append(file)\n    \n    if missing_files:\n        print(f"Missing required model files: {missing_files}", file=sys.stderr)\n        return False\n    return True\n\ndef verify_model_config(model_path):\n    try:\n        with open(os.path.join(model_path, "config.json"), "r") as f:\n            config = json.load(f)\n            \n        # Verify essential config fields\n        required_fields = ["model_type", "architectures", "torch_dtype", "version"]\n        missing_fields = [field for field in required_fields if field not in config]\n        \n        if missing_fields:\n            print(f"Missing required config fields: {missing_fields}", file=sys.stderr)\n            return False\n            \n        # Verify model type\n        if config.get("model_type") != "ltx-video":\n            print(f"Invalid model type: {config.get(\'model_type\')}", file=sys.stderr)\n            return False\n            \n        # Verify model version\n        if config.get("version") not in ["0.9.0", "0.9.1"]:\n            print(f"Unsupported model version: {config.get(\'version\')}", file=sys.stderr)\n            return False\n            \n        # Verify torch dtype\n        if config.get("torch_dtype") != "bfloat16":\n            print(f"Warning: Model dtype is {config.get(\'torch_dtype\')}, recommended dtype is bfloat16", file=sys.stderr)\n            \n        # Verify T5 encoder configuration\n        if "text_encoder" not in config:\n            print("Missing T5 encoder configuration", file=sys.stderr)\n            return False\n            \n        # Verify VAE configuration\n        if "vae" not in config:\n            print("Missing VAE configuration", file=sys.stderr)\n            return False\n            \n        # Verify diffusion model configuration\n        if "diffusion_model" not in config:\n            print("Missing diffusion model configuration", file=sys.stderr)\n            return False\n            \n        print("Model configuration verified successfully")\n        return True\n    except Exception as e:\n        print(f"Error verifying model config: {str(e)}", file=sys.stderr)\n        return False\n\n# (remaining code unchanged)\nif __name__ == "__main__":\n    success = download_with_progress()\n    sys.exit(0 if success else 1)' > /download_model.py
-
+RUN printf '%s\n' \
+    'import os' \
+    'import sys' \
+    'import time' \
+    'import signal' \
+    'import json' \
+    'import torch' \
+    'from huggingface_hub import snapshot_download' \
+    'from tqdm import tqdm' \
+    'from safetensors.torch import load_file' \
+    '' \
+    'def timeout_handler(signum, frame):' \
+    '    raise TimeoutError("Download timed out")' \
+    '' \
+    'def verify_model_files(model_path):' \
+    '    required_files = ["config.json", "model.safetensors", "scheduler", "text_encoder", "tokenizer", "vae"]' \
+    '    missing_files = []' \
+    '    ' \
+    '    for file in required_files:' \
+    '        if not os.path.exists(os.path.join(model_path, file)):' \
+    '            missing_files.append(file)' \
+    '    ' \
+    '    if missing_files:' \
+    '        print(f"Missing required model files: {missing_files}", file=sys.stderr)' \
+    '        return False' \
+    '    return True' \
+    '' \
+    'def verify_model_config(model_path):' \
+    '    try:' \
+    '        with open(os.path.join(model_path, "config.json"), "r") as f:' \
+    '            config = json.load(f)' \
+    '            ' \
+    '        required_fields = ["model_type", "architectures", "torch_dtype", "version"]' \
+    '        missing_fields = [field for field in required_fields if field not in config]' \
+    '        ' \
+    '        if missing_fields:' \
+    '            print(f"Missing required config fields: {missing_fields}", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        if config.get("model_type") != "ltx-video":' \
+    '            print(f"Invalid model type: {config.get("model_type")}", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        if config.get("version") not in ["0.9.0", "0.9.1"]:' \
+    '            print(f"Unsupported model version: {config.get("version")}", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        if config.get("torch_dtype") != "bfloat16":' \
+    '            print(f"Warning: Model dtype is {config.get("torch_dtype")}, recommended dtype is bfloat16", file=sys.stderr)' \
+    '            ' \
+    '        if "text_encoder" not in config:' \
+    '            print("Missing T5 encoder configuration", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        if "vae" not in config:' \
+    '            print("Missing VAE configuration", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        if "diffusion_model" not in config:' \
+    '            print("Missing diffusion model configuration", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        print("Model configuration verified successfully")' \
+    '        return True' \
+    '    except Exception as e:' \
+    '        print(f"Error verifying model config: {str(e)}", file=sys.stderr)' \
+    '        return False' \
+    '' \
+    'def download_with_progress():' \
+    '    try:' \
+    '        signal.signal(signal.SIGALRM, timeout_handler)' \
+    '        signal.alarm(1800)' \
+    '        ' \
+    '        print("Starting model download...")' \
+    '        model_path = snapshot_download(' \
+    '            repo_id="stabilityai/ltx-video",' \
+    '            local_dir="/models/ltx-video",' \
+    '            local_dir_use_symlinks=False,' \
+    '            resume_download=True,' \
+    '            tqdm_class=tqdm' \
+    '        )' \
+    '        ' \
+    '        if not verify_model_files(model_path):' \
+    '            print("Model files verification failed", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        if not verify_model_config(model_path):' \
+    '            print("Model configuration verification failed", file=sys.stderr)' \
+    '            return False' \
+    '            ' \
+    '        print("Model download and verification completed successfully")' \
+    '        return True' \
+    '        ' \
+    '    except TimeoutError:' \
+    '        print("Download timed out after 30 minutes", file=sys.stderr)' \
+    '        return False' \
+    '    except Exception as e:' \
+    '        print(f"Error during download: {str(e)}", file=sys.stderr)' \
+    '        return False' \
+    '    finally:' \
+    '        signal.alarm(0)' \
+    '' \
+    'if __name__ == "__main__":' \
+    '    success = download_with_progress()' \
+    '    sys.exit(0 if success else 1)' > /download_model.py
 
 # Run the Python script with increased timeout
 RUN python3 /download_model.py || (echo "Model download failed" && exit 1)
