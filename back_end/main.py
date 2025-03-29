@@ -29,36 +29,81 @@ app.add_middleware(
     expose_headers=["Content-Type"],  # Specify exposed headers
 )
 
-# Initialize the model
-MODEL_PATH = "/app/models/ltx-video"
+# Global variables for model and device
+MODEL_VERSION = "Lightricks/LTX-Video-0.9.1"  # Using latest stable version
 device = "cuda" if torch.cuda.is_available() else "cpu"
+text_to_video_pipe = None
+image_to_video_pipe = None
 
-# Initialize pipelines
-text_to_video_pipe = LTXPipeline.from_pretrained(
-    MODEL_PATH,
-    torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32
-).to(device)
-
-image_to_video_pipe = LTXImageToVideoPipeline.from_pretrained(
-    MODEL_PATH,
-    torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32
-).to(device)
+@app.on_event("startup")
+async def startup_event():
+    global text_to_video_pipe, image_to_video_pipe
+    try:
+        print(f"Loading models on device: {device}")
+        print(f"Loading models from: {MODEL_VERSION}")
+        
+        # Load text-to-video pipeline
+        print("Loading text-to-video pipeline...")
+        text_to_video_pipe = LTXPipeline.from_pretrained(
+            MODEL_VERSION,
+            torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32
+        ).to(device)
+        print("Text-to-video model loaded successfully")
+        
+        # Load image-to-video pipeline
+        print("Loading image-to-video pipeline...")
+        image_to_video_pipe = LTXImageToVideoPipeline.from_pretrained(
+            MODEL_VERSION,
+            torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32
+        ).to(device)
+        print("Image-to-video model loaded successfully")
+    except Exception as e:
+        print(f"Error loading models: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error details: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load models: {str(e)}"
+        )
 
 # Add a health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "device": device}
+    try:
+        # Check if models are loaded
+        models_loaded = text_to_video_pipe is not None and image_to_video_pipe is not None
+        
+        # Check CUDA memory if available
+        cuda_memory = None
+        if device == "cuda":
+            cuda_memory = {
+                "allocated": torch.cuda.memory_allocated() / 1024**3,  # GB
+                "cached": torch.cuda.memory_reserved() / 1024**3,  # GB
+            }
+        
+        return {
+            "status": "healthy" if models_loaded else "unhealthy",
+            "device": device,
+            "models_loaded": models_loaded,
+            "model_version": MODEL_VERSION,
+            "cuda_memory": cuda_memory
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
 class VideoGenerationRequest(BaseModel):
     prompt: str
     image_url: Optional[str] = None
     image_base64: Optional[str] = None
     seed: Optional[int] = None
-    inference_steps: int = 50  # Required parameter with default
-    guidance_scale: float = 7.5  # Required parameter with default
-    width: int = 704  # Required parameter with default
-    height: int = 480  # Required parameter with default
-    num_frames: int = 161  # Required parameter with default
+    inference_steps: int = 40  # Default from documentation
+    guidance_scale: float = 7.5  # Default from documentation
+    width: int = 768  # Default from documentation
+    height: int = 512  # Default from documentation
+    num_frames: int = 161  # Default from documentation
 
     def validate_dimensions(self):
         if self.width % 32 != 0 or self.height % 32 != 0:
@@ -69,9 +114,18 @@ class VideoGenerationRequest(BaseModel):
             raise ValueError("Inference steps must be positive")
         if self.guidance_scale < 0:
             raise ValueError("Guidance scale must be non-negative")
+        if self.width < 512 or self.width > 1024:
+            raise ValueError("Width must be between 512 and 1024")
+        if self.height < 512 or self.height > 1024:
+            raise ValueError("Height must be between 512 and 1024")
+        if self.num_frames < 17 or self.num_frames > 161:
+            raise ValueError("Number of frames must be between 17 and 161")
 
 @app.post("/generate-video")
 async def generate_video(request: VideoGenerationRequest):
+    if text_to_video_pipe is None or image_to_video_pipe is None:
+        raise HTTPException(status_code=503, detail="Models are not loaded yet")
+        
     try:
         # Validate dimensions and parameters
         request.validate_dimensions()
@@ -82,27 +136,37 @@ async def generate_video(request: VideoGenerationRequest):
             
             if request.image_url is not None or request.image_base64 is not None:
                 # Image-to-video generation
-                if request.image_base64:
-                    # Decode base64 image
-                    image_data = base64.b64decode(request.image_base64)
-                    image = Image.open(BytesIO(image_data))
-                else:
-                    # Load image from URL
-                    image = load_image(request.image_url)
-                
-                video = image_to_video_pipe(
-                    image=image,
-                    prompt=request.prompt,
-                    negative_prompt="worst quality, inconsistent motion, blurry, jittery, distorted",
-                    width=request.width,
-                    height=request.height,
-                    num_frames=request.num_frames,
-                    num_inference_steps=request.inference_steps,
-                    guidance_scale=request.guidance_scale,
-                    generator=torch.manual_seed(request.seed) if request.seed else None,
-                ).frames[0]
+                try:
+                    if request.image_base64:
+                        # Decode base64 image
+                        image_data = base64.b64decode(request.image_base64)
+                        image = Image.open(BytesIO(image_data))
+                    else:
+                        # Load image from URL
+                        image = load_image(request.image_url)
+                    
+                    # Validate image dimensions
+                    if image.width % 32 != 0 or image.height % 32 != 0:
+                        raise ValueError("Input image dimensions must be divisible by 32")
+                    
+                    print(f"Generating video from image with dimensions: {image.width}x{image.height}")
+                    video = image_to_video_pipe(
+                        image=image,
+                        prompt=request.prompt,
+                        negative_prompt="worst quality, inconsistent motion, blurry, jittery, distorted",
+                        width=request.width,
+                        height=request.height,
+                        num_frames=request.num_frames,
+                        num_inference_steps=request.inference_steps,
+                        guidance_scale=request.guidance_scale,
+                        generator=torch.manual_seed(request.seed) if request.seed else None,
+                    ).frames[0]
+                except Exception as e:
+                    print(f"Error processing image: {str(e)}")
+                    raise HTTPException(status_code=400, detail=f"Error processing image: {str(e)}")
             else:
                 # Text-to-video generation
+                print(f"Generating video from text prompt: {request.prompt}")
                 video = text_to_video_pipe(
                     prompt=request.prompt,
                     negative_prompt="worst quality, inconsistent motion, blurry, jittery, distorted",
@@ -114,6 +178,7 @@ async def generate_video(request: VideoGenerationRequest):
                     generator=torch.manual_seed(request.seed) if request.seed else None,
                 ).frames[0]
             
+            print(f"Exporting video to: {output_path}")
             # Export video
             export_to_video(video, output_path, fps=24)
             
@@ -136,5 +201,8 @@ async def generate_video(request: VideoGenerationRequest):
                 }
             }
             
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Error generating video: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

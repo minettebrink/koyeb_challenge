@@ -12,7 +12,7 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - DEBIAN_FRONTEND=noninteractive
       - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
-      - ALLOWED_ORIGINS=http://localhost:5173
+      - ALLOWED_ORIGINS=http://localhost:5173,https://*.koyeb.app,https://definite-weasel-challenge-f82bb88d.koyeb.app
       - BACKEND_URL=http://localhost:8000
     deploy:
       resources:
@@ -24,6 +24,12 @@ services:
         limits:
           memory: 160G
           cpus: '13'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
 
   frontend:
@@ -43,6 +49,13 @@ services:
         limits:
           memory: 4G
           cpus: '2'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     depends_on:
-      - backend 
+      backend:
+        condition: service_healthy 
